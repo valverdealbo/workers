@@ -39,8 +39,11 @@ export class Worker<Config extends object> {
     return this.status;
   }
 
-  public reconfigure(newConfig: Config): void {
+  public reconfigure(newConfig: Config, processImmediately: boolean): void {
     this.config = newConfig;
+    if (processImmediately) {
+      this.scheduleProcess(0);
+    }
   }
 
   public addStatusListener(listener: Listener<Worker<Config>>): void {

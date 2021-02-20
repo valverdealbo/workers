@@ -68,8 +68,16 @@ describe('Worker', () => {
     test('should replace the config', () => {
       const newConfig: TestConfig = { test: 'new' };
       const worker = new Worker({ name, config });
-      worker.reconfigure(newConfig);
+      worker.reconfigure(newConfig, false);
       expect(worker['config']).toBe(newConfig);
+    });
+
+    test('should schedule onProcess when processImmediately is true', () => {
+      const newConfig: TestConfig = { test: 'new' };
+      const worker = new Worker({ name, config });
+      worker.reconfigure(newConfig, true);
+      expect(worker['config']).toBe(newConfig);
+      expect(spyScheduleProcess).toHaveBeenCalled();
     });
   });
 

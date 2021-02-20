@@ -4,7 +4,6 @@
   "description": "Run code in the background with a configurable frequency",
   "keywords": [
     "worker",
-    "mongodb",
     "background"
   ],
   "main": "dist/index.js",
@@ -24,9 +23,6 @@
   "config": {
     "commitizen": {
       "path": "node_modules/cz-conventional-changelog"
-    },
-    "mongodbMemoryServer": {
-      "disablePostinstall": "1"
     }
   },
   "devDependencies": {
@@ -35,7 +31,6 @@
     "@semantic-release/npm": "^7.0.10",
     "@semantic-release/release-notes-generator": "^9.0.1",
     "@types/jest": "^26.0.20",
-    "@types/mongodb": "=3.6.3",
     "@typescript-eslint/eslint-plugin": "^4.15.1",
     "@typescript-eslint/parser": "^4.15.1",
     "commitizen": "^4.2.3",
@@ -46,15 +41,12 @@
     "eslint-plugin-import": "^2.22.1",
     "husky": "^4.3.8",
     "jest": "^26.6.3",
-    "mongodb-memory-server": "^6.9.3",
     "prettier": "^2.2.1",
     "semantic-release": "^17.3.7",
     "ts-jest": "^26.4.4",
     "typescript": "^4.1.3"
   },
-  "dependencies": {
-    "mongodb": "=3.6.3"
-  },
+  "dependencies": {},
   "scripts": {
     "compile": "rm -Rf ./dist && tsc -p tsconfig.build.json",
     "test": "jest",
