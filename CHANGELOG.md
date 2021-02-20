@@ -1,3 +1,10 @@
+## [1.0.4](https://github.com/valverdealbo/workers/compare/v1.0.3...v1.0.4) (2021-02-20)
+
+
+### Bug Fixes
+
+* remove watch worker ([9dfb4ff](https://github.com/valverdealbo/workers/commit/9dfb4ffabcc34c66c51ff3ed7cc73058aea9f4ff))
+
 ## [1.0.3](https://github.com/valverdealbo/workers/compare/v1.0.2...v1.0.3) (2021-02-19)
 
 
