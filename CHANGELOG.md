@@ -1,3 +1,10 @@
+## [1.0.6](https://github.com/valverdealbo/workers/compare/v1.0.5...v1.0.6) (2021-04-17)
+
+
+### Bug Fixes
+
+* add npm 7 as dev dependency, add pull request to ci github action ([b09e123](https://github.com/valverdealbo/workers/commit/b09e12373636fa94f8b7a93b858f0d49935f77d2))
+
 ## [1.0.5](https://github.com/valverdealbo/workers/compare/v1.0.4...v1.0.5) (2021-04-17)
 
 
