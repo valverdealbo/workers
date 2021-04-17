@@ -1,3 +1,10 @@
+## [1.0.5](https://github.com/valverdealbo/workers/compare/v1.0.4...v1.0.5) (2021-04-17)
+
+
+### Bug Fixes
+
+* update dependencies and tool configurations ([6b8dfca](https://github.com/valverdealbo/workers/commit/6b8dfca30462fc9071ae58e72c112cc6b9b60f9f))
+
 ## [1.0.4](https://github.com/valverdealbo/workers/compare/v1.0.3...v1.0.4) (2021-02-20)
 
 
