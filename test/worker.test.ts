@@ -1,5 +1,5 @@
 /* eslint-disable dot-notation,@typescript-eslint/no-empty-function,@typescript-eslint/no-explicit-any,no-empty */
-import { Worker } from './worker';
+import { Worker } from '../src';
 import SpyInstance = jest.SpyInstance;
 
 jest.useFakeTimers();
@@ -271,14 +271,14 @@ describe('Worker', () => {
   describe('onStart()', () => {
     test('should do nothing', async () => {
       const worker = new Worker({ name, config });
-      await worker['onStart']();
+      await expect(worker['onStart']()).resolves.not.toThrow();
     });
   });
 
   describe('onStop()', () => {
-    test('should fo nothing', async () => {
+    test('should do nothing', async () => {
       const worker = new Worker({ name, config });
-      await worker['onStop']();
+      await expect(worker['onStop']()).resolves.not.toThrow();
     });
   });
 
@@ -286,11 +286,7 @@ describe('Worker', () => {
     test('should throw', async () => {
       expect.assertions(1);
       const worker = new Worker({ name, config });
-      try {
-        await worker['onProcess']();
-      } catch (error) {
-        expect(error).toBeDefined();
-      }
+      await expect(worker['onProcess']()).rejects.toThrow();
     });
   });
 });

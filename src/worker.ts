@@ -1,5 +1,4 @@
 /* eslint-disable class-methods-use-this,@typescript-eslint/no-empty-function,@typescript-eslint/ban-types */
-
 export interface WorkerOptions<Config extends object> {
   name: string;
   config: Config;

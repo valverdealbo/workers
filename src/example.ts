@@ -26,7 +26,10 @@ async function run(): Promise<void> {
   function shutdown(): void {
     if (!shuttingDown) {
       shuttingDown = true;
-      worker.stop().then(() => process.exit(0));
+      worker
+        .stop()
+        .then(() => process.exit(0))
+        .catch(() => process.exit(-1));
     }
   }
 
