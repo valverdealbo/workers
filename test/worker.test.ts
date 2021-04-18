@@ -1,5 +1,7 @@
-/* eslint-disable dot-notation,@typescript-eslint/no-empty-function,@typescript-eslint/no-explicit-any,no-empty */
-import { Worker } from '../src';
+/* eslint-disable @typescript-eslint/no-explicit-any,dot-notation,@typescript-eslint/no-empty-function,no-empty */
+// noinspection ES6PreferShortImport
+
+import { Worker } from '../src/worker';
 import SpyInstance = jest.SpyInstance;
 
 jest.useFakeTimers();
@@ -13,6 +15,8 @@ describe('Worker', () => {
   const config: TestConfig = { test: 'test' };
   const delayOnError = 30000;
 
+  const spySetTimeout = setTimeout as jest.MockedFunction<typeof setTimeout>;
+  const spyClearTimeout = clearTimeout as jest.MockedFunction<typeof clearTimeout>;
   let spySetStatus: SpyInstance;
   let spyCancelProcess: SpyInstance;
   let spyScheduleProcess: SpyInstance;
@@ -22,8 +26,8 @@ describe('Worker', () => {
 
   beforeEach(() => {
     jest.clearAllTimers();
-    ((setTimeout as any) as SpyInstance).mockClear();
-    ((clearTimeout as any) as SpyInstance).mockClear();
+    spySetTimeout.mockClear();
+    spyClearTimeout.mockClear();
     spySetStatus = jest.spyOn<any, string>(Worker.prototype, 'setStatus');
     spyCancelProcess = jest.spyOn<any, string>(Worker.prototype, 'cancelProcess');
     spyScheduleProcess = jest.spyOn<any, string>(Worker.prototype, 'scheduleProcess');
@@ -96,7 +100,7 @@ describe('Worker', () => {
       const listener = jest.fn();
       worker.addStatusListener(listener);
       worker.removeStatusListener(listener);
-      expect(worker['listeners'].size).toBe(0);
+      expect(worker['listeners']).not.toContain(listener);
     });
   });
 

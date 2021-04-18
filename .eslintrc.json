@@ -29,7 +29,7 @@
   },
   "rules": {
     "import/prefer-default-export": "off",
-    "import/no-default-export": "error",
+    "import/no-default-export": "off",
     "import/extensions": "off"
   }
 }
