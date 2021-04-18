@@ -1,3 +1,10 @@
+## [1.0.7](https://github.com/valverdealbo/workers/compare/v1.0.6...v1.0.7) (2021-04-18)
+
+
+### Bug Fixes
+
+* update tools configurations ([8572a5e](https://github.com/valverdealbo/workers/commit/8572a5e34ca372e3ba9969ebb88e8be6384c7d12))
+
 ## [1.0.6](https://github.com/valverdealbo/workers/compare/v1.0.5...v1.0.6) (2021-04-17)
 
 
