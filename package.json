@@ -1,6 +1,6 @@
 {
   "name": "@valbo/workers",
-  "version": "1.0.7",
+  "version": "2.0.0",
   "description": "Run code in the background with a configurable frequency",
   "keywords": [
     "worker",

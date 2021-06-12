@@ -1,3 +1,16 @@
+# [2.0.0](https://github.com/valverdealbo/workers/compare/v1.0.7...v2.0.0) (2021-06-12)
+
+
+### Features
+
+* refactor worker to use composition instead of inheritance ([64bdfbe](https://github.com/valverdealbo/workers/commit/64bdfbea4321eb628fc55bfa0a402fe21018b552))
+
+
+### BREAKING CHANGES
+
+* the worker class now needs to be provided the code to run instead of being an
+abstract class to inherit from
+
 ## [1.0.7](https://github.com/valverdealbo/workers/compare/v1.0.6...v1.0.7) (2021-04-18)
 
 
