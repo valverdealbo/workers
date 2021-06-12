@@ -1,25 +1,20 @@
 /* eslint-disable no-console */
-import { Worker } from '.';
+import { Worker, WorkerProcess } from '.';
 
-interface CounterConfig {
-  counter: number;
-  frequency: number;
-}
-
-class CounterWorker extends Worker<CounterConfig> {
+let counter = 0;
+const workerProcess: WorkerProcess = {
   async onProcess(): Promise<number> {
-    console.log(`[${this.name}] counter = ${this.config.counter}`);
-    this.config.counter += 1;
-    return this.config.frequency;
-  }
-}
+    console.log(`counter = ${(counter += 1)}`);
+    return 1000;
+  },
+};
 
-function listener(worker: Worker<CounterConfig>): void {
-  console.log(`worker [${worker.getName()}] status = ${worker.getStatus()}`);
+function listener(worker: Worker): void {
+  console.log(`worker status = ${worker.getStatus()}`);
 }
 
 async function run(): Promise<void> {
-  const worker = new CounterWorker({ name: 'COUNTER', config: { counter: 1, frequency: 1000 } });
+  const worker = new Worker({ name: 'counter', process: workerProcess });
   worker.addStatusListener(listener);
 
   let shuttingDown = false;
@@ -28,8 +23,8 @@ async function run(): Promise<void> {
       shuttingDown = true;
       worker
         .stop()
-        .then(() => process.exit(0))
-        .catch(() => process.exit(-1));
+        .then(() => process.exit())
+        .catch(() => process.exit());
     }
   }
 
@@ -43,5 +38,5 @@ console.log('workers example: a worker that increases a counter every 1s');
 console.log('send a SIGINT or SIGTERM to stop the process');
 run().catch(error => {
   console.error(error.message);
-  process.exit(-1);
+  process.exit();
 });

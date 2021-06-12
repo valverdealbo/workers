@@ -1,1 +1,1 @@
-export { Worker, WorkerOptions, WorkerStatus } from './worker';
+export { Worker, WorkerOptions, WorkerStatus, WorkerProcess, Listener } from './worker';

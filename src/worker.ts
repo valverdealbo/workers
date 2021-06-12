@@ -1,32 +1,36 @@
 /* eslint-disable class-methods-use-this,@typescript-eslint/no-empty-function,@typescript-eslint/ban-types */
-export interface WorkerOptions<Config extends object> {
+export type WorkerProcess = {
+  onStart?: () => Promise<void>;
+  onStop?: () => Promise<void>;
+  onProcess: () => Promise<number>;
+};
+
+export type WorkerOptions = {
   name: string;
-  config: Config;
+  process: WorkerProcess;
   delayOnError?: number;
-}
+};
+
+export type Listener<Event> = (event: Event) => void;
 
 export type WorkerStatus = 'stopped' | 'starting' | 'started' | 'stopping' | 'failed';
 
-export interface Listener<T> {
-  (event: T): void;
-}
+export class Worker {
+  private readonly name: string;
 
-export class Worker<Config extends object> {
-  protected readonly name: string;
+  private status: WorkerStatus = 'stopped';
 
-  protected config: Config;
+  private process: WorkerProcess;
 
-  protected status: WorkerStatus = 'stopped';
+  private readonly delayOnError: number;
 
-  protected listeners: Set<Listener<Worker<Config>>> = new Set();
+  private timeout?: NodeJS.Timeout;
 
-  protected readonly delayOnError: number;
+  private statusListeners: Set<Listener<Worker>> = new Set();
 
-  protected timeout?: NodeJS.Timeout;
-
-  constructor(options: WorkerOptions<Config>) {
+  constructor(options: WorkerOptions) {
     this.name = options.name;
-    this.config = options.config;
+    this.process = options.process;
     this.delayOnError = options.delayOnError ?? 30000;
   }
 
@@ -38,56 +42,29 @@ export class Worker<Config extends object> {
     return this.status;
   }
 
-  public reconfigure(newConfig: Config, processImmediately: boolean): void {
-    this.config = newConfig;
-    if (processImmediately) {
-      this.scheduleProcess(0);
-    }
+  public addStatusListener(listener: Listener<Worker>): void {
+    this.statusListeners.add(listener);
   }
 
-  public addStatusListener(listener: Listener<Worker<Config>>): void {
-    this.listeners.add(listener);
+  public removeStatusListener(listener: Listener<Worker>): void {
+    this.statusListeners.delete(listener);
   }
 
-  public removeStatusListener(listener: Listener<Worker<Config>>): void {
-    this.listeners.delete(listener);
-  }
-
-  protected setStatus(status: WorkerStatus): void {
+  private setStatus(status: WorkerStatus): void {
     this.status = status;
-    this.listeners.forEach(listener => listener(this));
+    this.statusListeners.forEach(listener => listener(this));
   }
 
   public async start(): Promise<void> {
     if (this.status === 'stopped' || this.status === 'failed') {
       this.setStatus('starting');
       try {
-        await this.onStart();
-        this.setStatus('started');
+        await this.process.onStart?.();
         this.scheduleProcess(0);
+        this.setStatus('started');
       } catch (error) {
         this.setStatus('failed');
       }
-    }
-  }
-
-  protected cancelProcess(): void {
-    if (this.timeout !== undefined) {
-      clearTimeout(this.timeout);
-      this.timeout = undefined;
-    }
-  }
-
-  protected scheduleProcess(delay: number): void {
-    this.cancelProcess();
-    if (this.status === 'started') {
-      this.timeout = setTimeout(() => {
-        if (this.status === 'started') {
-          this.onProcess()
-            .then(nextDelay => this.scheduleProcess(nextDelay))
-            .catch(() => this.scheduleProcess(this.delayOnError));
-        }
-      }, delay);
     }
   }
 
@@ -96,7 +73,7 @@ export class Worker<Config extends object> {
       this.cancelProcess();
       this.setStatus('stopping');
       try {
-        await this.onStop();
+        await this.process.onStop?.();
         this.setStatus('stopped');
       } catch (error) {
         this.setStatus('failed');
@@ -104,31 +81,20 @@ export class Worker<Config extends object> {
     }
   }
 
-  /**
-   * Override in subclass with your custom start code in it.
-   *
-   * Will be called once by start().
-   *
-   * @returns {Promise<void>} Should resolve when the job starts correctly and reject when it fails.
-   */
-  protected async onStart(): Promise<void> {}
+  private cancelProcess(): void {
+    if (this.timeout !== undefined) {
+      clearTimeout(this.timeout);
+      this.timeout = undefined;
+    }
+  }
 
-  /**
-   * Override in subclass with your custom stop code in it.
-   *
-   * Will be called once by stop(). Should resolve when the job stops and reject when it fails.
-   * @returns {Promise<void>}
-   */
-  protected async onStop(): Promise<void> {}
-
-  /**
-   * Override in subclass with the code to run after every delay.
-   *
-   * Will be called once by start() and then scheduled to run again after the delay returned.
-   *
-   * @returns {Promise<number>} Milliseconds to wait until process() is called again. If it throws it will wait for delayOnError.
-   */
-  protected async onProcess(): Promise<number> {
-    throw Error('onProcess() not implemented, subclass Worker and implement it');
+  private scheduleProcess(delay: number): void {
+    this.cancelProcess();
+    this.timeout = setTimeout(() => {
+      this.process
+        .onProcess()
+        .then(nextDelay => this.scheduleProcess(nextDelay))
+        .catch(() => this.scheduleProcess(this.delayOnError));
+    }, delay);
   }
 }

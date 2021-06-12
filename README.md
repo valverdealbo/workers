@@ -16,23 +16,48 @@ npm install @valbo/workers
 
 ## Usage
 
-This package exports an abstract class **Worker** that you can inherit from to run code with a configurable frequency. See the [example](src/example.ts) file for a full example.
+First you need to create an object of type **WorkerProcess** with the code to run:
+
+```typescript
+import { WorkerProcess } from '@valbo/workers';
+
+const process: WorkerProcess = {
+  async onStart(): Promise<void> {
+    console.log('onStart() called');
+  },
+  
+  async onStop(): Promise<void> {
+    console.log('onStop() called');
+  },
+  
+  async onProcess(): Promise<number> {
+    console.log('onProcess() called, calling it again in 1s');
+    return 1000;
+  },
+};
+```
+
+The **WorkerProcess** type has 3 methods:
+
+- An optional **onStart()** method the worker will call when it starts. If it resolves the worker will start and if it rejects the worker will fail.
+- An optional **onStop()** method the worker will call when it stops. If it resolves the worker will stop and if it rejects the worker will fail.
+- A **onProcess()** method the worker will call repeatedly while started. The worker will wait its resolved value (in ms) to call it again, or a configurable delay (default 30s) if it rejects.
+
+Once you have a **WorkerProcess** object you need to create a **Worker** with it and call **start()** on the worker:
+
+```typescript
+import { Worker } from '@valbo/workers';
+
+const worker = new Worker({ name: 'example', process, delayOnError: 15000 });
+await worker.start();
+```
 
 The **Worker** class has:
 
-- A **status** property which can be **stopped**, **starting**, **started** or **stopping**.
+- A **status** property which can be **stopped**, **starting**, **started**, **stopping** or **failed**.
 - A **start()** and **stop()** methods to start and stop the worker.
-- A **onProcess()**, **onStart()** and **onStop()** methods that you can override by subclassing **Worker**.
 - A **addStatusListener()** and **removeStatusListener()** to report changes in its status to whoever is interested.
-- A generic **config** property to store anything you need in your worker, and a **reconfigure()** method to update it while the worker is running.
 
-Once started, a Worker will keep calling **onProcess()** again and again until it is stopped. In the **onProcess()** method you must implement whatever it is 
-that you want your worker to do, and then return the number of milliseconds you want to wait until **onProcess()** is called again. If **onProcess()** throws 
-then the worker will wait for **delayOnError** milliseconds, which is 30000 by default and configurable in the constructor.
+## Example
 
-You can also override **onStart()** and **onStop()** if you want your worker to execute some code when it starts or stops.
-
-The worker can report changes in its status to other objects. Just implement the **Listener** interface and call the **addStatusListener()** and **removeStatusListener()** methods.
-
-The worker receives a config object on creation to store anything you need to access from **onProcess()**. The **reconfigure()** method will update the worker config. 
-If it is called with **processImmediately = true** then the worker will cancel any wait for **onProcess()** and call it immediately.
+See the [example](src/example.ts) file for a full example.

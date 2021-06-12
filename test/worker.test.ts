@@ -1,296 +1,188 @@
-/* eslint-disable @typescript-eslint/no-explicit-any,dot-notation,@typescript-eslint/no-empty-function,no-empty */
-// noinspection ES6PreferShortImport
-
-import { Worker } from '../src/worker';
-import SpyInstance = jest.SpyInstance;
-
-jest.useFakeTimers();
-
-interface TestConfig {
-  test: string;
-}
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { Worker, WorkerProcess } from '../src/worker';
 
 describe('Worker', () => {
   const name = 'testWorker';
-  const config: TestConfig = { test: 'test' };
-  const delayOnError = 30000;
+  const onProcessReturn = 1000;
+  const delayOnError = 15000;
 
-  const spySetTimeout = setTimeout as jest.MockedFunction<typeof setTimeout>;
-  const spyClearTimeout = clearTimeout as jest.MockedFunction<typeof clearTimeout>;
-  let spySetStatus: SpyInstance;
-  let spyCancelProcess: SpyInstance;
-  let spyScheduleProcess: SpyInstance;
-  let spyOnStart: SpyInstance;
-  let spyOnStop: SpyInstance;
-  let spyOnProcess: SpyInstance;
+  const listener = jest.fn<void, [Worker]>();
+  const onStart = jest.fn<Promise<void>, []>();
+  const onStop = jest.fn<Promise<void>, []>();
+  const onProcess = jest.fn<Promise<number>, []>();
+  const process: WorkerProcess = { onStart, onStop, onProcess };
 
   beforeEach(() => {
-    jest.clearAllTimers();
-    spySetTimeout.mockClear();
-    spyClearTimeout.mockClear();
-    spySetStatus = jest.spyOn<any, string>(Worker.prototype, 'setStatus');
-    spyCancelProcess = jest.spyOn<any, string>(Worker.prototype, 'cancelProcess');
-    spyScheduleProcess = jest.spyOn<any, string>(Worker.prototype, 'scheduleProcess');
-    spyOnStart = jest.spyOn<any, string>(Worker.prototype, 'onStart');
-    spyOnStop = jest.spyOn<any, string>(Worker.prototype, 'onStop');
-    spyOnProcess = jest.spyOn<any, string>(Worker.prototype, 'onProcess');
+    jest.useFakeTimers();
+    listener.mockClear();
+    onStart.mockClear();
+    onStart.mockImplementation(() => Promise.resolve());
+    onStop.mockClear();
+    onStop.mockImplementation(() => Promise.resolve());
+    onProcess.mockClear();
+    onProcess.mockImplementation(() => Promise.resolve(onProcessReturn));
   });
 
   afterEach(() => {
-    spySetStatus.mockRestore();
-    spyCancelProcess.mockRestore();
-    spyScheduleProcess.mockRestore();
-    spyOnStart.mockRestore();
-    spyOnStop.mockRestore();
-    spyOnProcess.mockRestore();
-  });
-
-  describe('constructor()', () => {
-    test('should configure the instance', () => {
-      const worker = new Worker({ name, config, delayOnError });
-      expect(worker['name']).toBe(name);
-      expect(worker['config']).toBe(config);
-      expect(worker['delayOnError']).toBe(delayOnError);
-    });
+    jest.useRealTimers();
   });
 
   describe('getName()', () => {
     test('should return the name', () => {
-      const worker = new Worker({ name, config });
+      const worker = new Worker({ name, process });
       expect(worker.getName()).toBe(name);
     });
   });
 
   describe('getStatus()', () => {
     test('should return the status', () => {
-      const worker = new Worker({ name, config });
+      const worker = new Worker({ name, process });
       expect(worker.getStatus()).toBe('stopped');
     });
   });
 
-  describe('reconfigure()', () => {
-    test('should replace the config', () => {
-      const newConfig: TestConfig = { test: 'new' };
-      const worker = new Worker({ name, config });
-      worker.reconfigure(newConfig, false);
-      expect(worker['config']).toBe(newConfig);
-    });
-
-    test('should schedule onProcess when processImmediately is true', () => {
-      const newConfig: TestConfig = { test: 'new' };
-      const worker = new Worker({ name, config });
-      worker.reconfigure(newConfig, true);
-      expect(worker['config']).toBe(newConfig);
-      expect(spyScheduleProcess).toHaveBeenCalled();
-    });
-  });
-
   describe('addStatusListener()', () => {
-    test('should add the listener', () => {
-      const worker = new Worker({ name, config });
-      const listener = jest.fn();
+    test('should add the listener', async () => {
+      const worker = new Worker({ name, process });
       worker.addStatusListener(listener);
-      expect(worker['listeners']).toContain(listener);
+      await worker.start();
+      expect(listener).toHaveBeenCalledTimes(2);
+      await worker.stop();
+      expect(listener).toHaveBeenCalledTimes(4);
     });
   });
 
   describe('removeStatusListener()', () => {
-    test('should remove the listener', () => {
-      const worker = new Worker({ name, config });
-      const listener = jest.fn();
+    test('should remove the listener', async () => {
+      const worker = new Worker({ name, process });
       worker.addStatusListener(listener);
       worker.removeStatusListener(listener);
-      expect(worker['listeners']).not.toContain(listener);
-    });
-  });
-
-  describe('setStatus()', () => {
-    test('should set the status and notify the status listeners', () => {
-      const worker = new Worker({ name, config });
-      const listener = jest.fn();
-      worker.addStatusListener(listener);
-      worker['setStatus']('failed');
-      expect(worker['status']).toBe('failed');
-      expect(listener).toHaveBeenCalledWith(worker);
+      await worker.start();
+      await worker.stop();
+      expect(listener).not.toHaveBeenCalled();
     });
   });
 
   describe('start()', () => {
     test('should do nothing when the worker is not stopped or failed', async () => {
-      const worker = new Worker({ name, config });
-      worker['status'] = 'started';
+      const worker = new Worker({ name, process });
+      worker.addStatusListener(listener);
       await worker.start();
-      expect(spySetStatus).not.toHaveBeenCalled();
-      expect(spyOnStart).not.toHaveBeenCalled();
-      expect(spyScheduleProcess).not.toHaveBeenCalled();
+      expect(listener).toHaveBeenCalledTimes(2);
+      expect(onStart).toHaveBeenCalledTimes(1);
+      await worker.start();
+      expect(listener).toHaveBeenCalledTimes(2);
+      expect(onStart).toHaveBeenCalledTimes(1);
+      expect(worker.getStatus()).toBe('started');
     });
 
     test('should start the worker when onStart() resolves', async () => {
-      const worker = new Worker({ name, config });
-      spyOnStart.mockResolvedValue(true);
+      const worker = new Worker({ name, process });
+      worker.addStatusListener(listener);
       await worker.start();
-      expect(spySetStatus).toHaveBeenCalledTimes(2);
-      expect(spySetStatus).toHaveBeenNthCalledWith(1, 'starting');
-      expect(spySetStatus).toHaveBeenNthCalledWith(2, 'started');
-      expect(spyOnStart).toHaveBeenCalled();
-      expect(spyScheduleProcess).toHaveBeenCalledWith(0);
-      expect(spyOnStart.mock.invocationCallOrder[0]).toBeGreaterThan(spySetStatus.mock.invocationCallOrder[0]);
-      expect(spySetStatus.mock.invocationCallOrder[1]).toBeGreaterThan(spyOnStart.mock.invocationCallOrder[0]);
-      expect(spyScheduleProcess.mock.invocationCallOrder[0]).toBeGreaterThan(spySetStatus.mock.invocationCallOrder[1]);
+      expect(listener).toHaveBeenCalledTimes(2);
+      expect(onStart).toHaveBeenCalledTimes(1);
+      expect(worker.getStatus()).toBe('started');
     });
 
     test('should set the worker to failed when onStart() rejects', async () => {
-      const worker = new Worker({ name, config });
-      spyOnStart.mockRejectedValue(new TypeError());
+      onStart.mockImplementation(() => Promise.reject());
+      const worker = new Worker({ name, process });
+      worker.addStatusListener(listener);
       await worker.start();
-      expect(spySetStatus).toHaveBeenCalledTimes(2);
-      expect(spySetStatus).toHaveBeenNthCalledWith(1, 'starting');
-      expect(spySetStatus).toHaveBeenNthCalledWith(2, 'failed');
-      expect(spyOnStart).toHaveBeenCalled();
-      expect(spyScheduleProcess).not.toHaveBeenCalled();
-      expect(spyOnStart.mock.invocationCallOrder[0]).toBeGreaterThan(spySetStatus.mock.invocationCallOrder[0]);
-      expect(spySetStatus.mock.invocationCallOrder[1]).toBeGreaterThan(spyOnStart.mock.invocationCallOrder[0]);
-    });
-  });
-
-  describe('cancelProcess()', () => {
-    test('should do nothing when there is no onProcess() scheduled', () => {
-      const worker = new Worker({ name, config });
-      worker['cancelProcess']();
-      expect(clearTimeout).not.toHaveBeenCalled();
-    });
-
-    test('should clear the scheduled onProcess()', async () => {
-      const worker = new Worker({ name, config });
-      worker['timeout'] = setTimeout(() => {}, 0);
-      worker['cancelProcess']();
-      expect(worker['timeout']).toBeUndefined();
-      expect(clearTimeout).toHaveBeenCalled();
-    });
-  });
-
-  describe('scheduleProcess()', () => {
-    test('should do nothing when the worker is not started', () => {
-      const worker = new Worker({ name, config });
-      worker['scheduleProcess'](0);
-      expect(setTimeout).not.toHaveBeenCalled();
-    });
-
-    test('should schedule onProcess(), call it and schedule it using its returned value', async () => {
-      const worker = new Worker({ name, config });
-      worker['status'] = 'started';
-      spyOnProcess.mockResolvedValue(10000);
-      worker['scheduleProcess'](5000);
-      expect(spyCancelProcess).toHaveBeenCalled();
-      expect(setTimeout).toHaveBeenCalledTimes(1);
-      expect(spyOnProcess).not.toHaveBeenCalled();
-      expect(spyScheduleProcess).toHaveBeenCalledTimes(1);
-      jest.runOnlyPendingTimers();
-      await spyOnProcess.mock.results[0].value;
-      expect(spyCancelProcess).toHaveBeenCalledTimes(2);
-      expect(setTimeout).toHaveBeenCalledTimes(2);
-      expect(spyOnProcess).toHaveBeenCalled();
-      expect(spyScheduleProcess).toHaveBeenCalledTimes(2);
-      expect(spyScheduleProcess).toHaveBeenNthCalledWith(2, 10000);
-    });
-
-    test('should schedule onProcess(), call it and schedule it after delayOnError when it throws', async () => {
-      const worker = new Worker({ name, config });
-      worker['status'] = 'started';
-      spyOnProcess.mockRejectedValue(new TypeError());
-      worker['scheduleProcess'](5000);
-      expect(spyCancelProcess).toHaveBeenCalled();
-      expect(setTimeout).toHaveBeenCalledTimes(1);
-      expect(spyOnProcess).not.toHaveBeenCalled();
-      expect(spyScheduleProcess).toHaveBeenCalledTimes(1);
-      jest.runOnlyPendingTimers();
-      try {
-        await spyOnProcess.mock.results[0].value;
-      } catch (error) {}
-      expect(spyCancelProcess).toHaveBeenCalledTimes(2);
-      expect(setTimeout).toHaveBeenCalledTimes(2);
-      expect(spyOnProcess).toHaveBeenCalled();
-      expect(spyScheduleProcess).toHaveBeenCalledTimes(2);
-      expect(spyScheduleProcess).toHaveBeenNthCalledWith(2, worker['delayOnError']);
-    });
-
-    test('should schedule onProcess() and not call it when the worker status has changed to not started in the meantime', async () => {
-      const worker = new Worker({ name, config });
-      worker['status'] = 'started';
-      spyOnProcess.mockResolvedValue(10000);
-      worker['scheduleProcess'](5000);
-      expect(spyCancelProcess).toHaveBeenCalled();
-      expect(setTimeout).toHaveBeenCalledTimes(1);
-      expect(spyOnProcess).not.toHaveBeenCalled();
-      expect(spyScheduleProcess).toHaveBeenCalledTimes(1);
-      worker['status'] = 'stopped';
-      jest.runOnlyPendingTimers();
-      expect(spyCancelProcess).toHaveBeenCalledTimes(1);
-      expect(setTimeout).toHaveBeenCalledTimes(1);
-      expect(spyOnProcess).not.toHaveBeenCalled();
-      expect(spyScheduleProcess).toHaveBeenCalledTimes(1);
+      expect(listener).toHaveBeenCalledTimes(2);
+      expect(onStart).toHaveBeenCalledTimes(1);
+      expect(worker.getStatus()).toBe('failed');
     });
   });
 
   describe('stop()', () => {
     test('should do nothing when the worker is not started', async () => {
-      const worker = new Worker({ name, config });
-      await worker['stop']();
-      expect(spyCancelProcess).not.toHaveBeenCalled();
-      expect(spySetStatus).not.toHaveBeenCalled();
-      expect(spyOnStop).not.toHaveBeenCalled();
+      const worker = new Worker({ name, process });
+      worker.addStatusListener(listener);
+      await worker.stop();
+      expect(listener).not.toHaveBeenCalled();
+      expect(onStop).not.toHaveBeenCalled();
+      expect(worker.getStatus()).toBe('stopped');
     });
 
     test('should stop the worker when onStop() resolves', async () => {
-      const worker = new Worker({ name, config });
-      worker['status'] = 'started';
-      spyOnStop.mockResolvedValue(true);
-      await worker['stop']();
-      expect(spyCancelProcess).toHaveBeenCalled();
-      expect(spySetStatus).toHaveBeenCalledTimes(2);
-      expect(spySetStatus).toHaveBeenNthCalledWith(1, 'stopping');
-      expect(spySetStatus).toHaveBeenNthCalledWith(2, 'stopped');
-      expect(spyOnStop).toHaveBeenCalled();
-      expect(spySetStatus.mock.invocationCallOrder[0]).toBeGreaterThan(spyCancelProcess.mock.invocationCallOrder[0]);
-      expect(spyOnStop.mock.invocationCallOrder[0]).toBeGreaterThan(spySetStatus.mock.invocationCallOrder[0]);
-      expect(spySetStatus.mock.invocationCallOrder[1]).toBeGreaterThan(spyOnStop.mock.invocationCallOrder[0]);
+      const worker = new Worker({ name, process });
+      worker.addStatusListener(listener);
+      await worker.start();
+      await worker.stop();
+      expect(listener).toHaveBeenCalledTimes(4);
+      expect(onStop).toHaveBeenCalled();
+      expect(worker.getStatus()).toBe('stopped');
     });
 
-    test('should stop the worker when onStop() rejects', async () => {
-      const worker = new Worker({ name, config });
-      worker['status'] = 'started';
-      spyOnStop.mockRejectedValue(new TypeError());
-      await worker['stop']();
-      expect(spyCancelProcess).toHaveBeenCalled();
-      expect(spySetStatus).toHaveBeenCalledTimes(2);
-      expect(spySetStatus).toHaveBeenNthCalledWith(1, 'stopping');
-      expect(spySetStatus).toHaveBeenNthCalledWith(2, 'failed');
-      expect(spyOnStop).toHaveBeenCalled();
-      expect(spySetStatus.mock.invocationCallOrder[0]).toBeGreaterThan(spyCancelProcess.mock.invocationCallOrder[0]);
-      expect(spyOnStop.mock.invocationCallOrder[0]).toBeGreaterThan(spySetStatus.mock.invocationCallOrder[0]);
-      expect(spySetStatus.mock.invocationCallOrder[1]).toBeGreaterThan(spyOnStop.mock.invocationCallOrder[0]);
+    test('should set the worker to failed when onStop() rejects', async () => {
+      onStop.mockImplementation(() => Promise.reject());
+      const worker = new Worker({ name, process });
+      worker.addStatusListener(listener);
+      await worker.start();
+      await worker.stop();
+      expect(listener).toHaveBeenCalledTimes(4);
+      expect(onStop).toHaveBeenCalled();
+      expect(worker.getStatus()).toBe('failed');
     });
   });
 
-  describe('onStart()', () => {
-    test('should do nothing', async () => {
-      const worker = new Worker({ name, config });
-      await expect(worker['onStart']()).resolves.not.toThrow();
+  describe('process.onProcess()', () => {
+    test('should be called after the worker starts', async () => {
+      const worker = new Worker({ name, process });
+      await worker.start();
+      expect(onProcess).not.toHaveBeenCalled();
+      jest.runOnlyPendingTimers();
+      expect(onProcess).toHaveBeenCalled();
     });
-  });
 
-  describe('onStop()', () => {
-    test('should do nothing', async () => {
-      const worker = new Worker({ name, config });
-      await expect(worker['onStop']()).resolves.not.toThrow();
+    test('should be scheduled to run again after its return value', async () => {
+      const worker = new Worker({ name, process });
+      await worker.start();
+      expect(onProcess).not.toHaveBeenCalled();
+      jest.runOnlyPendingTimers();
+      await Promise.resolve();
+      expect(onProcess).toHaveBeenCalledTimes(1);
+      jest.runOnlyPendingTimers();
+      await Promise.resolve();
+      expect(onProcess).toHaveBeenCalledTimes(2);
     });
-  });
 
-  describe('onProcess()', () => {
-    test('should throw', async () => {
-      expect.assertions(1);
-      const worker = new Worker({ name, config });
-      await expect(worker['onProcess']()).rejects.toThrow();
+    test('should be scheduled to run again after the default delayOnError when it throws', async () => {
+      onProcess.mockImplementation(() => Promise.reject());
+      const worker = new Worker({ name, process });
+      await worker.start();
+      expect(onProcess).not.toHaveBeenCalled();
+      jest.runOnlyPendingTimers();
+      await Promise.resolve();
+      expect(onProcess).toHaveBeenCalledTimes(1);
+      jest.runOnlyPendingTimers();
+      await Promise.resolve();
+      jest.runOnlyPendingTimers();
+      expect(onProcess).toHaveBeenCalledTimes(2);
+    });
+
+    test('should be scheduled to run again after a custom delayOnError when it throws', async () => {
+      onProcess.mockImplementation(() => Promise.reject());
+      const worker = new Worker({ name, process, delayOnError });
+      await worker.start();
+      expect(onProcess).not.toHaveBeenCalled();
+      jest.runOnlyPendingTimers();
+      await Promise.resolve();
+      expect(onProcess).toHaveBeenCalledTimes(1);
+      jest.runOnlyPendingTimers();
+      await Promise.resolve();
+      jest.runOnlyPendingTimers();
+      expect(onProcess).toHaveBeenCalledTimes(2);
+    });
+
+    test('should not run when the worker is stopped before the timeout expires', async () => {
+      const worker = new Worker({ name, process, delayOnError });
+      await worker.start();
+      await worker.stop();
+      jest.runOnlyPendingTimers();
+      expect(onProcess).not.toHaveBeenCalled();
     });
   });
 });
